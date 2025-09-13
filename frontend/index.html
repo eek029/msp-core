@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>MSP - Mercado Sui Pago</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mysten/sui.js@0.97.0/dist/umd/sui.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+    button { padding: 10px 20px; font-size: 16px; margin: 10px; }
+    .produto { font-size: 1.2em; margin: 20px; }
+    #receipt { margin-top: 30px; }
+  </style>
+</head>
+<body>
+  <h1>🛒 MSP - Mercado Sui Pago</h1>
+  <div class="produto">Camisa - R$100,00</div>
+  <button id="connect">Conectar Slush Wallet</button>
+  <button id="pay" disabled>Pagar com SUI</button>
+  <div id="status"></div>
+  <div id="receipt"></div>
+
+  <script>
+    const sui = new window.sui.SuiClient({ 
+      url: 'https://fullnode.devnet.sui.io' 
+    });
+
+    let currentAddress = null;
+
+    document.getElementById('connect').onclick = async () => {
+      try {
+        if (!window.sui) {
+          alert("Instale a Slush Wallet");
+          return;
+        }
+        const accounts = await window.sui.connect();
+        currentAddress = accounts[0];
+        document.getElementById('status').innerText = 
+          '✅ Conectado: ' + currentAddress.slice(0, 8) + '...';
+        document.getElementById('pay').disabled = false;
+      } catch (err) {
+        document.getElementById('status').innerText = '❌ Erro ao conectar.';
+      }
+    };
+
+    document.getElementById('pay').onclick = () => {
+      fetch('http://localhost:3000/api/pagamento', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user: currentAddress })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.walrus_url) {
+          document.getElementById('receipt').innerHTML = `
+            <p>✅ Pagamento confirmado!</p>
+            <p><strong>Recibo salvo no Walrus:</strong></p>
+            <a href="${data.walrus_url}" target="_blank">${data.walrus_url}</a>
+          `;
+        }
+      })
+      .catch(err => {
+        document.getElementById('status').innerText = '❌ Falha no pagamento.';
+      });
+    };
+  </script>
+</body>
+</html>
