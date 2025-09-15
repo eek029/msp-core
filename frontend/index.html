@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>MSP - Mercado Sui Pago</title>
+  <!-- SDK da Sui -->
   <script src="https://cdn.jsdelivr.net/npm/@mysten/sui.js@0.97.0/dist/umd/sui.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
@@ -20,12 +21,27 @@
   <div id="receipt"></div>
 
   <script>
+    // Cliente Sui (Devnet)
     const sui = new window.sui.SuiClient({ 
-      url: 'https://fullnode.devnet.sui.io' 
+      url: 'https://fullnode.devnet.sui.io'  // removido espaço extra
     });
 
     let currentAddress = null;
 
+    // Endereço do lojista (seu endereço)
+    const LOJISTA = '0x91009991d46fc675f73137664e28a95ce2b7ca86c719f84b81ec40498eba45ba';
+
+    // ID do pacote do contrato Move
+    const PACKAGE_ID = '0xa2e9dea71b87668d307d82441e891b6ac36ea93959e8f46e8c6fdcbef45cb4de';
+
+    // Módulo e função
+    const MODULE = 'payment';
+    const FUNCTION = 'pay';
+
+    // Valor em MIST (0.1 SUI)
+    const VALOR_MIST = 100000000;
+
+    // Conectar carteira
     document.getElementById('connect').onclick = async () => {
       try {
         if (!window.sui) {
@@ -42,25 +58,43 @@
       }
     };
 
-    document.getElementById('pay').onclick = () => {
-      fetch('http://localhost:3000/api/pagamento', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: currentAddress })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.walrus_url) {
-          document.getElementById('receipt').innerHTML = `
-            <p>✅ Pagamento confirmado!</p>
-            <p><strong>Recibo salvo no Walrus:</strong></p>
-            <a href="${data.walrus_url}" target="_blank">${data.walrus_url}</a>
-          `;
-        }
-      })
-      .catch(err => {
-        document.getElementById('status').innerText = '❌ Falha no pagamento.';
-      });
+    // Pagar com SUI (chama o contrato Move)
+    document.getElementById('pay').onclick = async () => {
+      if (!currentAddress) return;
+
+      try {
+        const tx = {
+          packageObjectId: PACKAGE_ID,
+          module: MODULE,
+          function: FUNCTION,
+          typeArguments: [],
+          arguments: [LOJISTA, VALOR_MIST],
+          gasBudget: 10000,
+        };
+
+        // Assina e executa a transação
+        const result = await window.sui.signAndExecuteTransaction({ transaction: tx });
+
+        // Mostra sucesso e link no explorador
+        const explorerUrl = `https://suiexplorer.com/txblock/${result.digest}?network=devnet`;
+        document.getElementById('receipt').innerHTML = `
+          <p>✅ Pagamento feito com sucesso!</p>
+          <p><strong>Transação:</strong></p>
+          <a href="${explorerUrl}" target="_blank">${result.digest}</a>
+        `;
+
+        // Opcional: envia recibo pro backend/Walrus depois
+        /*
+        fetch('/api/recibo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tx: result.digest, buyer: currentAddress })
+        });
+        */
+
+      } catch (err) {
+        document.getElementById('status').innerText = '❌ Erro: ' + err.message;
+      }
     };
   </script>
 </body>
